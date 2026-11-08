@@ -1,0 +1,49 @@
+name: Bug report / Help
+description: Something went wrong with the installer or the game, or you need help
+title: "[Help] "
+labels: ["help"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Sorry something went wrong! Please run **report.bat** (in the mod folder) first: it creates `DD2-NTC-report-<date>.zip` on your Desktop. Attach that ZIP below, it has everything I need to investigate.
+  - type: dropdown
+    id: when
+    attributes:
+      label: When did it happen?
+      options:
+        - "verify.bat / install.bat (installer)"
+        - "GPU self-test failed"
+        - "Game start / black screen"
+        - "Main menu"
+        - "Loading the save"
+        - "In game (textures, stutter, crash)"
+        - "Other / just a question"
+    validations:
+      required: true
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU and driver version
+      placeholder: "e.g. NVIDIA RTX 3070, driver 566.36 / AMD RX 7800 XT, Adrenalin 25.1.1"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead. The exact error message helps a lot.
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: report.bat ZIP
+      description: Drag and drop the DD2-NTC-report ZIP here.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before posting
+      options:
+        - label: I have REFramework installed (v1.5.9.1 tested)
+        - label: verify.bat said my game is compatible

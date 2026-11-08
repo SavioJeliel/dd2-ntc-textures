@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions and general chat
+    url: https://github.com/SavioJeliel/dd2-ntc-textures/discussions
+    about: "Does it work on my GPU? How does it work? Ask here."
+  - name: Nexus Mods page
+    url: https://www.nexusmods.com/dragonsdogma2/mods/2526
+    about: Download the mod and leave comments on Nexus.
+  - name: Support the project
+    url: https://buymeacoffee.com/saviojeliel
+    about: Buy me a coffee if the mod saved you space.
