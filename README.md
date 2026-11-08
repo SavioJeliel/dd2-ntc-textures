@@ -17,7 +17,7 @@ Textures lose some quality, since this is lossy compression. Loading works norma
 
 ## Requirements
 
-- **The exact game build this pack was made for:** `Dragons.Dogma.2.Build.16102026`. The installer checks `DD2.exe` (SHA-256 `3b7296da3d861ce3861a9425e31129697eb7c843661f6ff88a0fa45248394182`) and every texture block before it changes anything. Any other build is refused, and nothing is touched.
+- **The same game version this pack was made for.** The installer checks `DD2.exe` and every texture block before it changes anything. Any other version is refused, and nothing is touched. Run `verify.bat` first to know whether your copy is compatible.
 - **[REFramework](https://github.com/praydog/REFramework) for DD2** (`dinput8.dll` in the game folder). Tested with v1.5.9.1.
 - **The game on an NTFS drive.** The installer uses NTFS sparse files.
 - **A DirectX 12 GPU.** Tested on an NVIDIA GeForce RTX 5060 (see [Tested hardware](#tested-hardware)). The installer self-tests your GPU first.
@@ -124,7 +124,7 @@ As texturas perdem um pouco de qualidade, porque a compressão tem perda. O carr
 
 ### Requisitos
 
-- **A mesma build do jogo:** `Dragons.Dogma.2.Build.16102026`. O instalador confere o `DD2.exe` e cada trecho de textura antes de mexer em qualquer coisa. Com outra build, ele recusa e não altera nada.
+- **A mesma versão do jogo para a qual o pacote foi feito.** O instalador confere o `DD2.exe` e cada trecho de textura antes de mexer em qualquer coisa. Com outra versão, ele recusa e não altera nada. Rode o `verify.bat` antes para saber se a sua cópia é compatível.
 - **[REFramework](https://github.com/praydog/REFramework) para DD2** (`dinput8.dll` na pasta do jogo). Testado com a v1.5.9.1.
 - **Jogo num disco NTFS.**
 - **GPU com DirectX 12.** Testado numa NVIDIA GeForce RTX 5060.
