@@ -102,6 +102,13 @@ The plugin source is in `src/bridge` (MIT). It needs these, all downloaded separ
 
 The released ZIPs already contain the compiled plugin.
 
+Build steps (Windows, Visual Studio 2022):
+1. Put the RTXNTC SDK in `src/tools/RTXNTC`, MinHook and DirectXTex where `src/bridge/CMakeLists.txt` expects them.
+2. `cmake -S src/bridge -B src/bridge/build -G "Visual Studio 17 2022" -A x64`, then `cmake --build src/bridge/build --config Release`. This builds `dd2_ntc_bridge.dll` and downloads `bc7enc.cpp` into `src/bridge/build`.
+3. `cmake -S src/gpu-selftest -B src/gpu-selftest/build -G "Visual Studio 17 2022" -A x64`, then `cmake --build src/gpu-selftest/build --config Release`. This builds `ntc_gpu_bench.exe`, the GPU self-test the installer runs. It reuses the plugin's GPU code.
+
+The release contains only three binaries: `dd2_ntc_bridge.dll` and `ntc_gpu_bench.exe`, both built from this source, and `libntc.dll`, NVIDIA's unmodified library from the RTXNTC SDK.
+
 ## Credits and licenses
 
 - **The project's own code** (plugin source, installer, scripts) is under the [MIT License](LICENSE). The MIT license does **not** cover `libntc.dll` or the other third-party parts.
