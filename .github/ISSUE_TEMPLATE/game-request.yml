@@ -1,0 +1,44 @@
+name: Game request
+description: Ask for the NTC texture compression to be done for another game
+title: "[Game request] "
+labels: ["game-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion! Big games benefit the most, so please give the install size.
+        Supporters on [Buy Me a Coffee](https://buymeacoffee.com/saviojeliel) get their votes counted first.
+  - type: input
+    id: game
+    attributes:
+      label: Game
+      placeholder: "e.g. Monster Hunter Wilds"
+    validations:
+      required: true
+  - type: input
+    id: size
+    attributes:
+      label: Install size on disk
+      placeholder: "e.g. 140 GB"
+    validations:
+      required: true
+  - type: dropdown
+    id: store
+    attributes:
+      label: Store
+      options: ["Steam", "Epic", "GOG", "Microsoft Store / Game Pass", "Other"]
+    validations:
+      required: true
+  - type: input
+    id: engine
+    attributes:
+      label: Engine (if you know it)
+      placeholder: "e.g. RE Engine, Unreal Engine 5, Unity"
+  - type: input
+    id: supporter
+    attributes:
+      label: Buy Me a Coffee name (optional, for supporter priority)
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else

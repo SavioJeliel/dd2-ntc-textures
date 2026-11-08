@@ -1,0 +1,61 @@
+DD2 NTC Textures - Third-party notices
+=====================================
+
+This mod ships or uses the components below. Each one stays under its own
+license. The project's own MIT license (LICENSE) does not apply to them.
+
+-------------------------------------------------------------------------------
+NVIDIA RTX Neural Texture Compression library (libntc.dll, version 0.10.1)
+-------------------------------------------------------------------------------
+libntc.dll is the property of NVIDIA Corporation and is protected by the
+NVIDIA RTX SDKs License. It is included here only in compiled (object code)
+form, as part of this mod, under the terms of that license. The full license
+text is in NVIDIA-RTX-SDK-LICENSE.txt, and the licenses of the components
+inside the library are in NVIDIA-RTXNTC-ThirdPartyLicenses.txt.
+
+  - No NVIDIA source code is distributed with this mod.
+  - libntc.dll may not be redistributed separately from this mod, reverse
+    engineered, or used outside the terms of the NVIDIA RTX SDKs License.
+  - This mod is not sponsored or endorsed by NVIDIA.
+  - The plugin (dd2_ntc_bridge.dll) only works with Dragon's Dogma 2. It does
+    not expose the NTC library to other programs.
+
+Source: https://github.com/NVIDIA-RTX/RTXNTC
+
+-------------------------------------------------------------------------------
+REFramework
+-------------------------------------------------------------------------------
+Required, not included. Copyright (c) praydog. MIT License.
+https://github.com/praydog/REFramework
+
+-------------------------------------------------------------------------------
+MinHook (statically linked into dd2_ntc_bridge.dll)
+-------------------------------------------------------------------------------
+Copyright (C) 2009-2017 Tsuda Kageyu. BSD 2-Clause License.
+https://github.com/TsudaKageyu/minhook
+
+-------------------------------------------------------------------------------
+DirectXTex (statically linked into dd2_ntc_bridge.dll)
+-------------------------------------------------------------------------------
+Copyright (c) Microsoft Corporation. MIT License.
+https://github.com/microsoft/DirectXTex
+
+-------------------------------------------------------------------------------
+bc7enc_rdo (compiled into dd2_ntc_bridge.dll)
+-------------------------------------------------------------------------------
+Copyright (c) Richard Geldreich, Jr. MIT License or public domain (Unlicense),
+at your choice. https://github.com/richgel999/bc7enc_rdo
+
+-------------------------------------------------------------------------------
+stb_dxt (compiled into dd2_ntc_bridge.dll)
+-------------------------------------------------------------------------------
+By Rich Geldreich and Fabian "ryg" Giesen. Public domain or MIT License.
+https://github.com/nothings/stb
+
+-------------------------------------------------------------------------------
+Dragon's Dogma 2
+-------------------------------------------------------------------------------
+Dragon's Dogma 2 (c) Capcom Co., Ltd. This is an unofficial fan mod, not
+affiliated with or endorsed by Capcom. It contains no original game files,
+only compressed data derived from the textures, which needs your own copy of
+the game to be useful.
