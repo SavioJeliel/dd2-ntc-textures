@@ -152,9 +152,18 @@ $drive = (Get-Item -LiteralPath $GamePath).PSDrive.Name
 if ((Get-Volume -DriveLetter $drive).FileSystem -ne 'NTFS') { throw 'The game must be on an NTFS drive.' }
 
 $totals = @{}
+$skipped = @()
 foreach ($pak in $manifest.paks.PSObject.Properties) {
     $path = Join-Path $GamePath $pak.Name
-    if (-not (Test-Path -LiteralPath $path)) { throw "PAK not found: $path" }
+    if (-not (Test-Path -LiteralPath $path)) {
+        # The DLC PAK is not in every copy of the game: without it there is nothing to shrink there.
+        if ($pak.Name -like 'dlc/*') {
+            Write-Host "   $($pak.Name) not found: skipping it (the main PAK is still processed)" -ForegroundColor Yellow
+            $skipped += $pak.Name
+            continue
+        }
+        throw "PAK not found: $path"
+    }
     if ((Get-Item -LiteralPath $path).Length -ne $pak.Value.size) { throw "Unexpected size of $($pak.Name): different game build." }
     Step "Checking $($pak.Value.ranges.Count) blocks of $($pak.Name)"
     $count = @(0, 0, 0)
@@ -193,6 +202,7 @@ $expected = (Get-ChildItem -LiteralPath (Join-Path $Payload 'reframework\plugins
 if ((Get-ChildItem -LiteralPath (Join-Path $plugins 'dd2_ntc_data') -File).Count -ne $expected) { throw 'Copying the data was incomplete. The PAKs were not changed.' }
 
 foreach ($pak in $manifest.paks.PSObject.Properties) {
+    if ($skipped -contains $pak.Name) { continue }
     $path = Join-Path $GamePath $pak.Name
     Step "Zeroing $($totals[$pak.Name][0]) blocks of $($pak.Name)"
     $file = [IO.File]::Open($path, 'Open', 'ReadWrite', 'None')
