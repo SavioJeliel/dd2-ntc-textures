@@ -15,9 +15,13 @@ It removes most texture data from the game's PAK files. While you play, a REFram
 
 Textures lose some quality, since this is lossy compression. Loading works normally.
 
+> ⚠️ **Game version:** v1.0 was built for **game version 4.1** (`DD2.exe` 4.1.0.0). The current Steam version is **4.2**, and the installer refuses it without changing anything. **A 4.2 update of the mod is in progress.**
+>
+> ✅ **AMD works:** the GPU self-test passed on an AMD Radeon RX 7900 XTX (80 of 80 textures rebuilt on the GPU).
+
 ## Requirements
 
-- **The same game version this pack was made for.** The installer checks `DD2.exe` and every texture block before it changes anything. Any other version is refused, and nothing is touched. Run `verify.bat` first to know whether your copy is compatible.
+- **The game version this pack was made for: 4.1** (`DD2.exe` 4.1.0.0). The installer checks `DD2.exe` and every texture block before it changes anything. Any other version is refused, and nothing is touched. Run `verify.bat` first to know whether your copy is compatible.
 - **[REFramework](https://github.com/praydog/REFramework) for DD2** (`dinput8.dll` in the game folder). Tested with v1.5.9.1.
 - **The game on an NTFS drive.** The installer uses NTFS sparse files.
 - **A DirectX 12 GPU.** Tested on an NVIDIA GeForce RTX 5060 (see [Tested hardware](#tested-hardware)). The installer self-tests your GPU first.
@@ -89,7 +93,14 @@ If this mod saved you space, you can buy me a coffee: **[buymeacoffee.com/savioj
 
 ## Tested hardware
 
-Developed and tested on an **NVIDIA GeForce RTX 5060**. The plugin rebuilds textures with DirectX 12 compute shaders from the NTC library, with Int8 weights and no vendor-specific tensor features. Other DirectX 12 GPUs *should* work, but this has not been tested yet.
+Developed and tested on an **NVIDIA GeForce RTX 5060**. The plugin rebuilds textures with DirectX 12 compute shaders from the NTC library, with Int8 weights and no vendor-specific tensor features.
+
+| GPU | Result |
+| --- | --- |
+| NVIDIA GeForce RTX 5060 | Full test: installed, menu, save and gameplay OK |
+| AMD Radeon RX 7900 XTX | GPU self-test passed (80/80 textures, ~3 ms each); game install pending the 4.2 update |
+
+Other DirectX 12 GPUs *should* work, since NVIDIA validates this NTC mode on GTX 10-series, AMD RX 6000 and Intel Arc and newer.
 
 **The installer runs a GPU self-test before changing anything.** It rebuilds a sample of textures of every format on your GPU with the same code the plugin uses. If any of them fails, the installer stops and leaves the game untouched. Please report your GPU and driver version in an issue, whether it passes or fails.
 
@@ -128,6 +139,10 @@ Mod para Dragon's Dogma 2 que reduz o jogo em disco em cerca de **40 GB**: de un
 Ele tira dos PAKs a maior parte dos dados de textura. Durante o jogo, um plugin do REFramework reconstrói essas texturas na GPU a partir de dados comprimidos com [Neural Texture Compression (NTC)](https://github.com/NVIDIA-RTX/RTXNTC).
 
 As texturas perdem um pouco de qualidade, porque a compressão tem perda. O carregamento funciona normalmente.
+
+> ⚠️ **Versão do jogo:** a v1.0 foi feita para a **versão 4.1 do jogo** (`DD2.exe` 4.1.0.0). A versão atual da Steam é a **4.2**, e o instalador recusa essa versão sem alterar nada. **Uma atualização do mod para a 4.2 está em andamento.**
+>
+> ✅ **Funciona em AMD:** o autoteste de GPU passou numa AMD Radeon RX 7900 XTX, com as 80 texturas reconstruídas pela GPU.
 
 ### Requisitos
 
