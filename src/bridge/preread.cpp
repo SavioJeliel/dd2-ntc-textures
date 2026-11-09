@@ -4,10 +4,12 @@
 #include <dxgiformat.h>
 #include <wrl/client.h>
 #include <d3d12.h>
+#include <dxgi1_6.h>
 
 #include "preread.hpp"
 #include "tex_recipe.hpp"
 #include "gpu_tex.hpp"
+#include "signatures.hpp"
 
 #include <iomanip>
 
@@ -40,8 +42,6 @@ constexpr auto timeout = std::chrono::milliseconds(1500);
 constexpr auto required_timeout = std::chrono::seconds(15);
 constexpr auto required_on_demand_timeout = std::chrono::seconds(3);
 constexpr std::uint64_t heavy_tex_bytes = 8 * 1024 * 1024;
-constexpr std::uintptr_t reader_rva = 0x222640;
-constexpr std::uintptr_t caller_rva = 0x222502;
 constexpr unsigned char reader_prologue[] = {0x48, 0x89, 0xd0, 0x48, 0xc1, 0xe8, 0x10};
 
 struct Variant {
@@ -485,6 +485,13 @@ Match find_variant(std::uintptr_t token) {
         if ((!entry.key || row[0] == entry.key) && row[2] == entry.packed &&
             row[3] == variant.length && row[4] == entry.flags && row[5] == entry.hash) return match;
     }
+    // O PAK pode ter outras entradas (apelidos, às vezes sem nome conhecido) apontando para os mesmos bytes, com outra
+    // flag e outro hash de entrada. Mesmo offset, tamanho comprimido e tamanho real são os mesmos dados: serve igual.
+    for (auto found = matches.first; found != matches.second; ++found) {
+        const auto match = found->second;
+        const auto& entry = match.asset->entries[match.variant];
+        if (row[2] == entry.packed && row[3] == match.asset->variants[match.variant]->length) return match;
+    }
     return {};
 }
 
@@ -835,9 +842,15 @@ Microsoft::WRL::ComPtr<ID3D12Device> find_game_device() {
         static_cast<IUnknown*>(renderer_data->device)->QueryInterface(IID_PPV_ARGS(&device));
     }
     if (!device) {
-        // Depois que o jogo criou o dispositivo, esta chamada devolve o mesmo objeto para o adaptador.
-        D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&device));
-        logger->log_warn("[dd2_ntc_bridge] GPU lot: REFramework has no device; used D3D12CreateDevice");
+        // Os hooks ligam antes do REFramework entregar o dispositivo. Usa a placa de alto desempenho, a mesma do jogo;
+        // como o jogo já criou o dispositivo dele, o D3D12 devolve o mesmo objeto para esse adaptador.
+        Microsoft::WRL::ComPtr<IDXGIFactory6> factory;
+        Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter;
+        if (SUCCEEDED(CreateDXGIFactory1(IID_PPV_ARGS(&factory)))) {
+            factory->EnumAdapterByGpuPreference(0, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&adapter));
+        }
+        D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&device));
+        logger->log_info("[dd2_ntc_bridge] GPU lot: device from the high-performance adapter (REFramework device not ready yet)");
     }
     return device;
 }
@@ -926,7 +939,24 @@ std::uint64_t intercept_read(void* context, std::uintptr_t token, void* dst,
                              std::uint64_t count, std::uint64_t position) {
     if (enabled.load(std::memory_order_acquire) && _ReturnAddress() == expected_caller && dst && count) {
         const auto match = find_variant(token);
-        if (!match.asset) return original_read(context, token, dst, count, position);
+        if (!match.asset) {
+            // Diagnóstico: offset do manifesto que não bateu a identidade. Mostra o que o jogo leu e o que esperávamos.
+            static std::atomic<int> reported_misses{0};
+            std::uint64_t row[6];
+            if (gameplay_trace && read_pak_row(token, row) && reported_misses.load() < 200) {
+                const auto known = std::as_const(by_offset).equal_range(row[1]);
+                for (auto found = known.first; found != known.second; ++found) {
+                    const auto& entry = found->second.asset->entries[found->second.variant];
+                    const auto& variant = *found->second.asset->variants[found->second.variant];
+                    reported_misses.fetch_add(1);
+                    logger->log_warn("[dd2_ntc_bridge] MISS %s %s: game key=%llu off=%llu packed=%llu len=%llu flags=%llu hash=%llu | "
+                                     "manifest key=%llu packed=%llu len=%llu flags=%llu hash=%llu",
+                                     found->second.asset->name.c_str(), variant.name, row[0], row[1], row[2], row[3], row[4], row[5],
+                                     entry.key, entry.packed, static_cast<unsigned long long>(variant.length), entry.flags, entry.hash);
+                }
+            }
+            return original_read(context, token, dst, count, position);
+        }
         auto& asset = *match.asset;
         const auto& recipe = asset.recipes[match.variant];
         unsigned event = 0;
@@ -973,6 +1003,10 @@ std::uint64_t intercept_read(void* context, std::uintptr_t token, void* dst,
                 }
             }
         } else if (selected == Route::original) {
+            if (gameplay_trace && lot_mode && asset.lot[match.variant].required) {
+                logger->log_warn("[dd2_ntc_bridge] REQUIRED-TO-PAK %s %s position=%llu count=%llu", asset.name.c_str(),
+                                 asset.variants[match.variant]->name, position, count);
+            }
             length = original_read(context, token, dst, count, position);
         }
         if (event) {
@@ -1004,13 +1038,26 @@ std::uint64_t intercept_read(void* context, std::uintptr_t token, void* dst,
 }
 }
 
+void set_preread_logger(const REFrameworkPluginFunctions& functions) { logger = &functions; }
+void set_renderer_data(const REFrameworkRendererData* renderer) { renderer_data = renderer; }
+
 bool install_preread_hook(const REFrameworkPluginFunctions& functions, const REFrameworkRendererData* renderer) {
     renderer_data = renderer;
-    auto* image = reinterpret_cast<unsigned char*>(GetModuleHandleW(nullptr));
-    auto* entry = image + reader_rva;
-    if (std::memcmp(entry, reader_prologue, sizeof(reader_prologue)) != 0) return false;
-    expected_caller = image + caller_rva;
     logger = &functions;
+    // Leitor e chamador por assinatura, para funcionar em qualquer build com o mesmo código.
+    unsigned reader_matches = 0, caller_matches = 0;
+    auto* entry = dd2sig::find(dd2sig::tex_reader, dd2sig::tex_reader_offset, &reader_matches);
+    expected_caller = dd2sig::find(dd2sig::tex_reader_caller, dd2sig::tex_reader_caller_offset, &caller_matches);
+    if (!entry || !expected_caller || std::memcmp(entry, reader_prologue, sizeof(reader_prologue)) != 0) {
+        logger->log_error("[dd2_ntc_bridge] TEX reader signatures found %u/%u times (expected 1/1)", reader_matches, caller_matches);
+        return false;
+    }
+    {
+        const auto image = reinterpret_cast<std::uintptr_t>(GetModuleHandleW(nullptr));
+        logger->log_info("[dd2_ntc_bridge] TEX reader at RVA 0x%llX, caller return at RVA 0x%llX",
+                         static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(entry) - image),
+                         static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(expected_caller) - image));
+    }
     try {
         load_manifest();
         const auto data = ntc_data_directory();

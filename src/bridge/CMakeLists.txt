@@ -47,7 +47,7 @@ endfunction()
 fetch_bc7_file(bc7enc.cpp b90444a091530a13c61fa6375583fcc9bc9ca47e474fd71f818876de68c1b581)
 fetch_bc7_file(bc7enc.h f40f4a956ed6a8845b7909e83831de09512424408b32ca29551bf49aee2fecf6)
 
-add_library(dd2_ntc_bridge SHARED bridge.cpp decode.cpp gpu_tex.cpp preread.cpp tex_recipe.cpp "${CMAKE_CURRENT_BINARY_DIR}/bc7enc.cpp")
+add_library(dd2_ntc_bridge SHARED bridge.cpp decode.cpp gpu_tex.cpp preread.cpp signatures.cpp tex_recipe.cpp "${CMAKE_CURRENT_BINARY_DIR}/bc7enc.cpp")
 target_compile_features(dd2_ntc_bridge PRIVATE cxx_std_17)
 target_compile_definitions(dd2_ntc_bridge PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_include_directories(dd2_ntc_bridge PRIVATE
@@ -55,7 +55,7 @@ target_include_directories(dd2_ntc_bridge PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/../tools/REFramework-source/REFramework-1.5.9.1/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/../tools/RTXNTC/libraries/RTXNTC-Library/include"
 )
-target_link_libraries(dd2_ntc_bridge PRIVATE minhook DirectXTex d3d12)
+target_link_libraries(dd2_ntc_bridge PRIVATE minhook DirectXTex d3d12 dxgi)
 
 add_executable(batch_bc1 EXCLUDE_FROM_ALL ../batch/bc1.cpp)
 target_compile_features(batch_bc1 PRIVATE cxx_std_17)

@@ -1,6 +1,8 @@
 ﻿# Dragon's Dogma 2 NTC texture mod installer.
-# Checks the game build, installs the REFramework plugin with the NTC data, and zeroes in the PAKs
-# the texture blocks the plugin rebuilds. Zeroing cannot be undone by this script: keep a backup of the game.
+# Installs the REFramework plugin with the NTC data and zeroes, in the PAKs, the texture blocks the plugin rebuilds.
+# Flexible by design: it finds the plugin's hook points in DD2.exe by signature, picks the matching game version
+# from the block contents, and only zeroes blocks that are byte-identical to what the NTC data was made from.
+# Anything else (modded or updated blocks) is left untouched. Zeroing cannot be undone by this script: keep a backup.
 #
 # Usage:  install.bat  (asks for the game folder)
 #     or: powershell -ExecutionPolicy Bypass -File install.ps1 -GamePath "C:\...\Dragons Dogma 2" [-VerifyOnly]
@@ -29,6 +31,7 @@ trap {
 
 Add-Type -Language CSharp -TypeDefinition @'
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -42,21 +45,22 @@ public static class NtcPak {
     static byte[] buffer = new byte[64 * 1024 * 1024];
     static SHA256 sha = SHA256.Create();
 
-    static int Fill(FileStream file, long offset, int length) {
+    static bool Fill(FileStream file, long offset, int length) {
+        if (offset < 0 || offset + length > file.Length) return false;
         if (length > buffer.Length) buffer = new byte[length];
         file.Position = offset;
         int read = 0;
         while (read < length) {
             int n = file.Read(buffer, read, length - read);
-            if (n <= 0) throw new IOException("Unexpected end of file");
+            if (n <= 0) return false;
             read += n;
         }
-        return length;
+        return true;
     }
 
-    // 0 = original, 1 = already zeroed, 2 = other content.
+    // 0 = original, 1 = already zeroed, 2 = different content (or outside the file).
     public static int Check(FileStream file, long offset, int length, string expected) {
-        Fill(file, offset, length);
+        if (!Fill(file, offset, length)) return 2;
         bool zero = true;
         for (int i = 0; i < length; ++i) if (buffer[i] != 0) { zero = false; break; }
         if (zero) return 1;
@@ -70,7 +74,7 @@ public static class NtcPak {
     }
 
     public static bool IsZero(FileStream file, long offset, int length) {
-        Fill(file, offset, length);
+        if (!Fill(file, offset, length)) return false;
         for (int i = 0; i < length; ++i) if (buffer[i] != 0) return false;
         return true;
     }
@@ -89,6 +93,47 @@ public static class NtcPak {
         BitConverter.GetBytes(offset + length).CopyTo(input, 8);
         Ioctl(file, FSCTL_SET_ZERO_DATA, input);
     }
+
+    // Counts how many times each signature ("41 57 ?? ...") appears in the .text section of an executable file.
+    public static int[] CountSignatures(string exePath, string[] patterns) {
+        byte[] data = File.ReadAllBytes(exePath);
+        int pe = BitConverter.ToInt32(data, 0x3C);
+        int sections = BitConverter.ToUInt16(data, pe + 6);
+        int optional = BitConverter.ToUInt16(data, pe + 20);
+        int table = pe + 24 + optional, start = 0, size = 0;
+        for (int i = 0; i < sections; ++i) {
+            int s = table + i * 40;
+            if (data[s] == '.' && data[s + 1] == 't' && data[s + 2] == 'e' && data[s + 3] == 'x' && data[s + 4] == 't') {
+                size = BitConverter.ToInt32(data, s + 16);   // SizeOfRawData
+                start = BitConverter.ToInt32(data, s + 20);  // PointerToRawData
+            }
+        }
+        var counts = new int[patterns.Length];
+        for (int p = 0; p < patterns.Length; ++p) {
+            string[] tokens = patterns[p].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            var bytes = new byte[tokens.Length];
+            var fixedByte = new bool[tokens.Length];
+            for (int i = 0; i < tokens.Length; ++i) {
+                fixedByte[i] = tokens[i] != "??";
+                if (fixedByte[i]) bytes[i] = Convert.ToByte(tokens[i], 16);
+            }
+            int anchor = 0, anchorLen = 0;
+            for (int i = 0; i < tokens.Length;) {
+                int j = i;
+                while (j < tokens.Length && fixedByte[j]) ++j;
+                if (j - i > anchorLen) { anchor = i; anchorLen = j - i; }
+                i = j + 1;
+            }
+            int end = start + size - tokens.Length;
+            for (int at = start; at <= end; ++at) {
+                if (data[at + anchor] != bytes[anchor]) continue;
+                bool ok = true;
+                for (int k = 0; k < tokens.Length && ok; ++k) ok = !fixedByte[k] || data[at + k] == bytes[k];
+                if (ok) counts[p]++;
+            }
+        }
+        return counts;
+    }
 }
 '@
 
@@ -105,8 +150,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $GamePath 'DD2.exe'))) {
     throw "DD2.exe not found in '$GamePath'. Choose the folder that contains DD2.exe."
 }
 $GamePath = (Resolve-Path -LiteralPath $GamePath).Path
-$manifestPath = Join-Path $Payload 'zero-ranges.json'
-if (-not (Test-Path -LiteralPath $manifestPath)) { throw "Package not found: $manifestPath. Extract all ZIP parts into the same folder." }
+if (-not (Test-Path -LiteralPath (Join-Path $Payload 'versions'))) { throw "Package not found in $Payload. Extract all ZIP parts into the same folder." }
 if (Get-Process -Name DD2 -ErrorAction SilentlyContinue) { throw 'Close Dragon''s Dogma 2 before installing.' }
 
 Step 'Checking package files'
@@ -118,7 +162,7 @@ foreach ($entry in $files.PSObject.Properties) {
 }
 if ($broken.Count) { throw "$($broken.Count) package files missing or corrupted (e.g. $($broken[0])). Download and extract all parts again." }
 
-# The PAK blocks will be gone after install, so the plugin has no fallback: the GPU route must work here.
+# The PAK blocks will be gone after install, so the plugin has no fallback for them: the GPU route must work here.
 $gpus = Get-CimInstance Win32_VideoController
 $gpuName = ($gpus | Select-Object -ExpandProperty Name) -join ', '
 foreach ($gpu in $gpus) { Write-Host "GPU: $($gpu.Name), driver $($gpu.DriverVersion)" }
@@ -136,55 +180,85 @@ if (-not $rows.Count -or $failed.Count) {
 }
 Write-Host "   $($rows.Count) textures rebuilt on the GPU, no failures"
 
-Step 'Reading the block list'
-$manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-
-Step "Checking the game build ($($manifest.game_build))"
-$exe = Join-Path $GamePath $manifest.exe.name
+# DD2.exe: no hash check. The plugin finds its hook points by signature, so any build with the same code works.
+$exe = Join-Path $GamePath 'DD2.exe'
 $exeItem = Get-Item -LiteralPath $exe
-if ($exeItem.Length -ne $manifest.exe.size -or (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLower() -ne $manifest.exe.sha256) {
-    throw 'DD2.exe is from a different build. This package only works with the build named above.'
+Step "Checking DD2.exe (version $($exeItem.VersionInfo.FileVersion))"
+$signatures = Get-Content -LiteralPath (Join-Path $Payload 'signatures.json') -Raw | ConvertFrom-Json
+$names = @($signatures.PSObject.Properties.Name)
+$counts = [NtcPak]::CountSignatures($exe, [string[]]@($names | ForEach-Object { $signatures.$_ }))
+$missing = @()
+for ($i = 0; $i -lt $names.Count; ++$i) {
+    Write-Host "   $($names[$i]): found $($counts[$i]) time(s)"
+    # The streaming notice is optional for the plugin; the others are required.
+    if ($counts[$i] -ne 1 -and $names[$i] -ne 'streaming_notice') { $missing += $names[$i] }
 }
+if ($missing.Count) { throw "This DD2.exe is not supported yet: the plugin cannot find $($missing -join ', '). Nothing was changed. Please report your game version." }
 if (-not (Test-Path -LiteralPath (Join-Path $GamePath 'dinput8.dll'))) {
     throw 'REFramework not found (dinput8.dll). Install REFramework for DD2 and run again.'
 }
 $drive = (Get-Item -LiteralPath $GamePath).PSDrive.Name
 if ((Get-Volume -DriveLetter $drive).FileSystem -ne 'NTFS') { throw 'The game must be on an NTFS drive.' }
 
-$totals = @{}
-$skipped = @()
-foreach ($pak in $manifest.paks.PSObject.Properties) {
+# Pick the game version whose texture blocks match this copy, by sampling a few hundred blocks of each.
+Step 'Detecting the game version from the PAK files'
+$best = $null
+foreach ($folder in Get-ChildItem -LiteralPath (Join-Path $Payload 'versions') -Directory) {
+    $ranges = Get-Content -LiteralPath (Join-Path $folder.FullName 'ranges.json') -Raw | ConvertFrom-Json
+    $sampled = 0; $matched = 0
+    foreach ($pak in $ranges.PSObject.Properties) {
+        $path = Join-Path $GamePath $pak.Name
+        if (-not (Test-Path -LiteralPath $path)) { continue }
+        $list = @($pak.Value)
+        $step = [Math]::Max(1, [int]($list.Count / 200))
+        $file = [IO.File]::Open($path, 'Open', 'Read', 'ReadWrite')
+        try {
+            for ($i = 0; $i -lt $list.Count; $i += $step) {
+                $r = $list[$i]
+                $sampled++
+                if ([NtcPak]::Check($file, [long]$r[0], [int]$r[1], [string]$r[2]) -ne 2) { $matched++ }
+            }
+        } finally { $file.Dispose() }
+    }
+    $score = if ($sampled) { $matched / $sampled } else { 0 }
+    Write-Host ("   version {0}: {1} of {2} sampled blocks match ({3:P0})" -f $folder.Name, $matched, $sampled, $score)
+    if (-not $best -or $score -gt $best.Score) { $best = [pscustomobject]@{ Name = $folder.Name; Folder = $folder.FullName; Ranges = $ranges; Score = $score } }
+}
+if (-not $best -or $best.Score -lt 0.5) {
+    throw 'Your game files do not match any version this pack supports. Nothing was changed. Please report your game version (DD2.exe version shown above).'
+}
+Write-Host "   using version $($best.Name)" -ForegroundColor Green
+
+# Full check: every block is either original (will be zeroed), already zeroed, or different (left untouched).
+$plan = @{}
+$owners = New-Object 'System.Collections.Generic.HashSet[string]'
+$totalOriginal = 0; $totalZeroed = 0; $totalDifferent = 0
+foreach ($pak in $best.Ranges.PSObject.Properties) {
     $path = Join-Path $GamePath $pak.Name
     if (-not (Test-Path -LiteralPath $path)) {
-        # The DLC PAK is not in every copy of the game: without it there is nothing to shrink there.
-        if ($pak.Name -like 'dlc/*') {
-            Write-Host "   $($pak.Name) not found: skipping it (the main PAK is still processed)" -ForegroundColor Yellow
-            $skipped += $pak.Name
-            continue
-        }
-        throw "PAK not found: $path"
+        Write-Host "   $($pak.Name) not found: skipping it" -ForegroundColor Yellow
+        continue
     }
-    if ((Get-Item -LiteralPath $path).Length -ne $pak.Value.size) { throw "Unexpected size of $($pak.Name): different game build." }
-    Step "Checking $($pak.Value.ranges.Count) blocks of $($pak.Name)"
+    Step "Checking $(@($pak.Value).Count) blocks of $($pak.Name)"
+    $toZero = New-Object System.Collections.ArrayList
     $count = @(0, 0, 0)
-    $bad = @()
-    $file = [IO.File]::Open($path, 'Open', 'Read', 'Read')
+    $file = [IO.File]::Open($path, 'Open', 'Read', 'ReadWrite')
     try {
-        $i = 0
-        foreach ($r in $pak.Value.ranges) {
+        foreach ($r in $pak.Value) {
             $state = [NtcPak]::Check($file, [long]$r[0], [int]$r[1], [string]$r[2])
             $count[$state]++
-            if ($state -eq 2 -and $bad.Count -lt 5) { $bad += $r[0] }
-            if ((++$i % 5000) -eq 0) { Write-Host "   $i blocks" }
+            if ($state -ne 2) { foreach ($asset in $r[3]) { [void]$owners.Add($asset) } }
+            if ($state -eq 0) { [void]$toZero.Add($r) }
         }
     } finally { $file.Dispose() }
-    Write-Host "   original: $($count[0])  already zeroed: $($count[1])  different: $($count[2])"
-    if ($count[2]) { throw "Unexpected content in $($pak.Name) (offsets $($bad -join ', ')). Nothing was changed." }
-    $totals[$pak.Name] = $count
+    Write-Host "   original: $($count[0])  already zeroed: $($count[1])  different (left untouched): $($count[2])"
+    $totalOriginal += $count[0]; $totalZeroed += $count[1]; $totalDifferent += $count[2]
+    $plan[$pak.Name] = $toZero
 }
+if (-not ($totalOriginal + $totalZeroed)) { throw 'No texture block matches. Nothing was changed.' }
 
 if ($VerifyOnly) {
-    Write-Host 'Check complete: the game is compatible. Nothing was changed.' -ForegroundColor Green
+    Write-Host ("Check complete: game version {0} is compatible. {1} blocks would be freed, {2} kept original. Nothing was changed." -f $best.Name, ($totalOriginal + $totalZeroed), $totalDifferent) -ForegroundColor Green
     Stop-Transcript | Out-Null
     return
 }
@@ -198,27 +272,34 @@ foreach ($name in 'dd2_ntc_bridge.dll', 'dd2_ntc_data') {
 }
 Copy-Item -LiteralPath (Join-Path $Payload 'reframework\plugins\dd2_ntc_bridge.dll') -Destination $plugins
 Copy-Item -LiteralPath (Join-Path $Payload 'reframework\plugins\dd2_ntc_data') -Destination $plugins -Recurse
-$expected = (Get-ChildItem -LiteralPath (Join-Path $Payload 'reframework\plugins\dd2_ntc_data') -File).Count
-if ((Get-ChildItem -LiteralPath (Join-Path $plugins 'dd2_ntc_data') -File).Count -ne $expected) { throw 'Copying the data was incomplete. The PAKs were not changed.' }
+$data = Join-Path $plugins 'dd2_ntc_data'
+Copy-Item -LiteralPath (Join-Path $best.Folder 'batch-01.tsv'), (Join-Path $best.Folder 'gpu-lot.txt') -Destination $data
+$expected = (Get-ChildItem -LiteralPath (Join-Path $Payload 'reframework\plugins\dd2_ntc_data') -File).Count + 2
+if ((Get-ChildItem -LiteralPath $data -File).Count -ne $expected) { throw 'Copying the data was incomplete. The PAKs were not changed.' }
+# Only textures whose blocks are zeroed on this PC are required to come from NTC; the rest can still use the PAK.
+$required = @($owners) | Sort-Object
+[IO.File]::WriteAllText((Join-Path $data 'gpu-lot-required.txt'), (($required -join "`n") + "`n"))
+Write-Host "   $($required.Count) textures will be served from NTC"
 
-foreach ($pak in $manifest.paks.PSObject.Properties) {
-    if ($skipped -contains $pak.Name) { continue }
-    $path = Join-Path $GamePath $pak.Name
-    Step "Zeroing $($totals[$pak.Name][0]) blocks of $($pak.Name)"
+foreach ($name in $plan.Keys) {
+    $path = Join-Path $GamePath $name
+    $list = $plan[$name]
+    Step "Zeroing $($list.Count) blocks of $name"
     $file = [IO.File]::Open($path, 'Open', 'ReadWrite', 'None')
     try {
         [NtcPak]::SetSparse($file)
-        foreach ($r in $pak.Value.ranges) { [NtcPak]::Zero($file, [long]$r[0], [long]$r[1]) }
+        foreach ($r in $list) { [NtcPak]::Zero($file, [long]$r[0], [long]$r[1]) }
         $file.Flush()
-        foreach ($r in $pak.Value.ranges) {
-            if (-not [NtcPak]::IsZero($file, [long]$r[0], [int]$r[1])) { throw "Block not zeroed in $($pak.Name): $($r[0])" }
+        foreach ($r in $list) {
+            if (-not [NtcPak]::IsZero($file, [long]$r[0], [int]$r[1])) { throw "Block not zeroed in ${name}: $($r[0])" }
         }
     } finally { $file.Dispose() }
 }
 
-$state = [ordered]@{ installed = (Get-Date).ToString('s'); game_build = $manifest.game_build; paks = $totals }
-$state | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $GamePath 'dd2-ntc-install.json') -Encoding utf8
-Write-Host 'Installation complete. Start the game as usual.' -ForegroundColor Green
+$state = [ordered]@{ installed = (Get-Date).ToString('s'); game_version = $best.Name; exe_version = $exeItem.VersionInfo.FileVersion
+                     freed_blocks = $totalOriginal + $totalZeroed; kept_original = $totalDifferent; ntc_textures = $required.Count }
+$state | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $GamePath 'dd2-ntc-install.json') -Encoding utf8
+Write-Host ("Installation complete (game version {0}): {1} blocks freed, {2} kept original. Start the game as usual." -f $best.Name, ($totalOriginal + $totalZeroed), $totalDifferent) -ForegroundColor Green
 Write-Host 'If this mod saved you space, you can support it: https://buymeacoffee.com/saviojeliel' -ForegroundColor Yellow
 Write-Host 'If something goes wrong in game, run report.bat and attach the ZIP to an issue.'
 Stop-Transcript | Out-Null

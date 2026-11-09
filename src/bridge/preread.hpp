@@ -18,6 +18,9 @@ struct DecodeTiming {
 };
 
 bool install_preread_hook(const REFrameworkPluginFunctions& functions, const REFrameworkRendererData* renderer);
+// Os hooks são instalados cedo, no carregamento da DLL; o logger e o dispositivo do REFramework chegam depois.
+void set_preread_logger(const REFrameworkPluginFunctions& functions);
+void set_renderer_data(const REFrameworkRendererData* renderer);
 // `streaming_notice` indica o chamador que anuncia os mips altos (+0x527bc10). Só o modo de lote o usa.
 void request_texture_prepare(const wchar_t* logical_path, bool streaming_notice = false);
 std::filesystem::path ntc_data_directory();

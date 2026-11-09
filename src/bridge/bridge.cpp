@@ -4,14 +4,18 @@
 #include <reframework/API.h>
 
 #include <atomic>
+#include <cstdarg>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <cwchar>
+#include <mutex>
+#include <string>
+#include <vector>
 #include "preread.hpp"
+#include "signatures.hpp"
 
 namespace {
-constexpr DWORD resource_manager_rva = 0x527C240;
-constexpr DWORD streaming_notice_rva = 0x527BC10;
 constexpr wchar_t target_texture[] = L"Environment/Textures/tx_074_ALBD.tex";
 constexpr unsigned char expected_prologue[] = {
     0x41, 0x57, 0x41, 0x56, 0x41, 0x55, 0x41, 0x54,
@@ -25,21 +29,13 @@ const void* streaming_notice_return = nullptr;
 std::atomic_flag logged_success = ATOMIC_FLAG_INIT;
 
 void* find_create_resource() {
-    auto* image = reinterpret_cast<unsigned char*>(GetModuleHandleW(nullptr));
-    if (!image) {
+    // Por assinatura, não por endereço: funciona em qualquer build em que o código desta função seja o mesmo.
+    unsigned matches = 0;
+    auto* entry = dd2sig::find(dd2sig::create_resource, dd2sig::create_resource_offset, &matches);
+    if (!entry) {
+        framework->log_error("[dd2_ntc_bridge] create_resource signature found %u times (expected 1)", matches);
         return nullptr;
     }
-    const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(image);
-    if (dos->e_magic != IMAGE_DOS_SIGNATURE || dos->e_lfanew <= 0) {
-        return nullptr;
-    }
-    const auto* pe = reinterpret_cast<const IMAGE_NT_HEADERS64*>(image + dos->e_lfanew);
-    if (pe->Signature != IMAGE_NT_SIGNATURE ||
-        pe->FileHeader.TimeDateStamp != 0x6ACE5933 ||
-        pe->OptionalHeader.SizeOfImage != 0x0F7FE000) {
-        return nullptr;
-    }
-    auto* entry = image + resource_manager_rva;
     if (std::memcmp(entry, expected_prologue, sizeof(expected_prologue)) == 0) {
         return entry;
     }
@@ -89,13 +85,62 @@ extern "C" __declspec(dllexport) void reframework_plugin_required_version(
     version->patch = REFRAMEWORK_PLUGIN_VERSION_PATCH;
 }
 
-extern "C" __declspec(dllexport) bool reframework_plugin_initialize(
-    const REFrameworkPluginInitializeParam* param) {
-    if (!param || !param->functions) {
-        return false;
+namespace {
+// Logger com fila: os hooks ligam no carregamento da DLL, antes de o REFramework entregar o logger dele.
+// As mensagens ficam guardadas e saem pelo logger real em reframework_plugin_initialize.
+std::mutex early_mutex;
+std::vector<std::string> early_lines;
+const REFrameworkPluginFunctions* real_framework = nullptr;
+
+void early_log(const char* level, const char* format, va_list args) {
+    char line[1024];
+    std::vsnprintf(line, sizeof(line), format, args);
+    std::lock_guard lock(early_mutex);
+    if (real_framework) {
+        real_framework->log_info("%s%s", level, line);
+    } else if (early_lines.size() < 200000) {
+        early_lines.emplace_back(std::string(level) + line);
     }
-    framework = param->functions;
-    streaming_notice_return = reinterpret_cast<unsigned char*>(GetModuleHandleW(nullptr)) + streaming_notice_rva;
+}
+void early_error(const char* format, ...) { va_list a; va_start(a, format); early_log("(early) ERROR ", format, a); va_end(a); }
+void early_warn(const char* format, ...) { va_list a; va_start(a, format); early_log("(early) WARN ", format, a); va_end(a); }
+void early_info(const char* format, ...) { va_list a; va_start(a, format); early_log("(early) ", format, a); va_end(a); }
+REFrameworkPluginFunctions early_functions{};
+
+std::atomic<int> early_state{0};  // 0 = rodando, 1 = hooks instalados, 2 = falhou
+HANDLE early_thread = nullptr;
+
+bool install_hooks(const REFrameworkRendererData* renderer);
+
+DWORD WINAPI early_install(void*) {
+    early_state.store(install_hooks(nullptr) ? 1 : 2);
+    return 0;
+}
+}  // namespace
+
+BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID) {
+    if (reason == DLL_PROCESS_ATTACH) {
+        DisableThreadLibraryCalls(module);
+        // Liga os hooks já no carregamento (cerca de 4 s após abrir o jogo), não na inicialização dos plugins
+        // (cerca de 15 s): texturas lidas nesse intervalo iam direto ao PAK, e travavam se estivessem zeradas.
+        // A thread começa depois que o loader solta o lock, então pode usar MinHook e ler arquivos.
+        early_functions.log_error = early_error;
+        early_functions.log_warn = early_warn;
+        early_functions.log_info = early_info;
+        framework = &early_functions;
+        early_thread = CreateThread(nullptr, 0, early_install, nullptr, 0, nullptr);
+    }
+    return TRUE;
+}
+
+namespace {
+bool install_hooks(const REFrameworkRendererData* renderer) {
+    unsigned notice_matches = 0;
+    streaming_notice_return = dd2sig::find(dd2sig::streaming_notice, dd2sig::streaming_notice_offset, &notice_matches);
+    if (!streaming_notice_return) {
+        // Sem o aviso, o streaming ainda entra pela própria leitura: só perde antecedência.
+        framework->log_warn("[dd2_ntc_bridge] streaming notice signature found %u times; continuing without it", notice_matches);
+    }
     void* entry = find_create_resource();
     if (!entry) {
         framework->log_error("[dd2_ntc_bridge] Unsupported executable or unexpected prologue");
@@ -117,10 +162,43 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(
         framework->log_error("[dd2_ntc_bridge] Hook setup: %s", MH_StatusToString(status));
         return false;
     }
-    framework->log_info("[dd2_ntc_bridge] Observation hook active at RVA 0x%X", resource_manager_rva);
-    if (!install_preread_hook(*framework, param->renderer_data)) {
+    const auto image = reinterpret_cast<std::uintptr_t>(GetModuleHandleW(nullptr));
+    framework->log_info("[dd2_ntc_bridge] Observation hook active at RVA 0x%llX (streaming notice RVA 0x%llX)",
+                        static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(entry) - image),
+                        streaming_notice_return ? static_cast<unsigned long long>(
+                            reinterpret_cast<std::uintptr_t>(streaming_notice_return) - image) : 0ull);
+    if (!install_preread_hook(*framework, renderer)) {
         framework->log_error("[dd2_ntc_bridge] Could not install TEX reader hook; using original");
-        return true;
     }
     return true;
+}
+}  // namespace
+
+extern "C" __declspec(dllexport) bool reframework_plugin_initialize(
+    const REFrameworkPluginInitializeParam* param) {
+    if (!param || !param->functions) {
+        return false;
+    }
+    if (early_thread) {
+        WaitForSingleObject(early_thread, 60000);
+        CloseHandle(early_thread);
+        early_thread = nullptr;
+    }
+    {
+        // Troca para o logger real e despeja o que foi registrado antes.
+        std::lock_guard lock(early_mutex);
+        real_framework = param->functions;
+        for (const auto& line : early_lines) real_framework->log_info("%s", line.c_str());
+        early_lines.clear();
+    }
+    framework = param->functions;
+    set_preread_logger(*param->functions);
+    set_renderer_data(param->renderer_data);
+    if (early_state.load() == 1) {
+        framework->log_info("[dd2_ntc_bridge] Hooks were installed early, at DLL load");
+        return true;
+    }
+    // Reserva: se a instalação antecipada falhou, tenta de novo agora, como antes.
+    framework->log_warn("[dd2_ntc_bridge] Early hook install failed; retrying at plugin initialize");
+    return install_hooks(param->renderer_data);
 }

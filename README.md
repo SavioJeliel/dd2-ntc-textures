@@ -15,13 +15,23 @@ It removes most texture data from the game's PAK files. While you play, a REFram
 
 Textures lose some quality, since this is lossy compression. Loading works normally.
 
-> ⚠️ **Game version:** v1.0 was built for **game version 4.1** (`DD2.exe` 4.1.0.0). The current Steam version is **4.2**, and the installer refuses it without changing anything. **A 4.2 update of the mod is in progress.**
+> ✅ **v1.1 supports game versions 4.1 and 4.2** (the current Steam version). The installer detects your version by itself.
 >
 > ✅ **AMD works:** the GPU self-test passed on an AMD Radeon RX 7900 XTX (80 of 80 textures rebuilt on the GPU).
 
+## What happens when the game updates? (plain English)
+
+Think of the game's big data file as a huge bookshelf, and each texture as a book in it.
+
+- The mod keeps a **list of where each book is** and a **compressed copy of each book**. It removes the original books from the shelf to free space, and when the game wants a book, the mod hands it the copy.
+- A game update usually **moves books to other spots on the shelf**, and sometimes **replaces a few books** with new ones. From 4.1 to 4.2, about 95% of the textures were exactly the same, they just moved.
+- **The mod is careful:** before removing any book, it checks that the book is exactly the one it has a copy of. If a book is different or not where it expects, it just **leaves it alone**. So an update can make the mod save less space, but it won't break your game.
+- **This version (v1.1)** knows the exact shelf positions of versions 4.1 and 4.2.
+- **Next version (in progress):** the mod will learn the new positions **by itself**. You start the game once, the mod looks at where the books are now, and then the installer can free the space. Future game updates that only move textures around will then work without waiting for a new pack. Textures that the update actually changed still need to be compressed again, so those stay in the game until a new pack.
+
 ## Requirements
 
-- **The game version this pack was made for: 4.1** (`DD2.exe` 4.1.0.0). The installer checks `DD2.exe` and every texture block before it changes anything. Any other version is refused, and nothing is touched. Run `verify.bat` first to know whether your copy is compatible.
+- **Game version 4.1 or 4.2.** The installer finds the plugin's hook points in `DD2.exe` and checks every texture block before it changes anything. Blocks that don't match are left untouched; if nothing matches, nothing is changed. Run `verify.bat` first to see what it would do on your copy.
 - **[REFramework](https://github.com/praydog/REFramework) for DD2** (`dinput8.dll` in the game folder). Tested with v1.5.9.1.
 - **The game on an NTFS drive.** The installer uses NTFS sparse files.
 - **A DirectX 12 GPU.** Tested on an NVIDIA GeForce RTX 5060 (see [Tested hardware](#tested-hardware)). The installer self-tests your GPU first.
@@ -97,8 +107,8 @@ Developed and tested on an **NVIDIA GeForce RTX 5060**. The plugin rebuilds text
 
 | GPU | Result |
 | --- | --- |
-| NVIDIA GeForce RTX 5060 | Full test: installed, menu, save and gameplay OK |
-| AMD Radeon RX 7900 XTX | GPU self-test passed (80/80 textures, ~3 ms each); game install pending the 4.2 update |
+| NVIDIA GeForce RTX 5060 | Game 4.1: installed, menu, save and gameplay OK. Game 4.2: installed, title screen and new game OK |
+| AMD Radeon RX 7900 XTX | GPU self-test passed (80/80 textures, ~3 ms each); in-game test pending |
 
 Other DirectX 12 GPUs *should* work, since NVIDIA validates this NTC mode on GTX 10-series, AMD RX 6000 and Intel Arc and newer.
 
@@ -140,13 +150,23 @@ Ele tira dos PAKs a maior parte dos dados de textura. Durante o jogo, um plugin 
 
 As texturas perdem um pouco de qualidade, porque a compressão tem perda. O carregamento funciona normalmente.
 
-> ⚠️ **Versão do jogo:** a v1.0 foi feita para a **versão 4.1 do jogo** (`DD2.exe` 4.1.0.0). A versão atual da Steam é a **4.2**, e o instalador recusa essa versão sem alterar nada. **Uma atualização do mod para a 4.2 está em andamento.**
+> ✅ **A v1.1 funciona nas versões 4.1 e 4.2 do jogo**, que é a atual da Steam. O instalador descobre a sua versão sozinho.
 >
 > ✅ **Funciona em AMD:** o autoteste de GPU passou numa AMD Radeon RX 7900 XTX, com as 80 texturas reconstruídas pela GPU.
 
+### E quando o jogo atualiza? (explicação simples)
+
+Pense no arquivo grande do jogo como uma estante enorme, e em cada textura como um livro.
+
+- O mod guarda uma **lista de onde fica cada livro** e uma **cópia compactada de cada um**. Ele tira os livros originais da estante para liberar espaço e, quando o jogo pede um livro, entrega a cópia.
+- Uma atualização do jogo costuma **mudar os livros de lugar** na estante e, às vezes, **trocar alguns** por livros novos. Da 4.1 para a 4.2, cerca de 95% das texturas eram iguais: só mudaram de lugar.
+- **O mod é cuidadoso:** antes de tirar um livro, ele confere se é exatamente aquele de que tem a cópia. Se o livro for diferente ou não estiver onde ele espera, **deixa onde está**. Uma atualização pode fazer o mod economizar menos espaço, mas não quebra o jogo.
+- **Esta versão (v1.1)** conhece o lugar exato dos livros nas versões 4.1 e 4.2.
+- **A próxima versão (em andamento)** vai **descobrir sozinha** os lugares novos. Você abre o jogo uma vez, o mod olha onde os livros estão agora, e o instalador libera o espaço. Atualizações que só mudam as texturas de lugar vão funcionar sem esperar um pacote novo. As texturas que a atualização realmente trocou ainda precisam ser compactadas de novo, então ficam no jogo até um pacote novo.
+
 ### Requisitos
 
-- **A mesma versão do jogo para a qual o pacote foi feito.** O instalador confere o `DD2.exe` e cada trecho de textura antes de mexer em qualquer coisa. Com outra versão, ele recusa e não altera nada. Rode o `verify.bat` antes para saber se a sua cópia é compatível.
+- **Versão 4.1 ou 4.2 do jogo.** O instalador acha no `DD2.exe` os pontos de que o plugin precisa e confere cada trecho de textura antes de mexer em qualquer coisa. Trechos que não batem ficam intactos; se nada bater, nada é alterado. Rode o `verify.bat` antes para ver o que ele faria na sua cópia.
 - **[REFramework](https://github.com/praydog/REFramework) para DD2** (`dinput8.dll` na pasta do jogo). Testado com a v1.5.9.1.
 - **Jogo num disco NTFS.**
 - **GPU com DirectX 12.** Testado numa NVIDIA GeForce RTX 5060.
