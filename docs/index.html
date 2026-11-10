@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DD2 NTC Textures: Dragon's Dogma 2 about 40 GB smaller</title>
+<meta name="description" content="Free Dragon's Dogma 2 mod that cuts about 40 GB from the install (90 GB to 51 GB) by rebuilding textures on the GPU with NVIDIA Neural Texture Compression (NTC). Game versions 4.1 and 4.2, NVIDIA and AMD.">
+<link rel="canonical" href="https://saviojeliel.github.io/dd2-ntc-textures/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="DD2 NTC Textures: Dragon's Dogma 2 about 40 GB smaller">
+<meta property="og:description" content="Textures rebuilt on your GPU with Neural Texture Compression. 90 GB to 51 GB on disk.">
+<meta property="og:url" content="https://saviojeliel.github.io/dd2-ntc-textures/">
+<meta property="og:image" content="https://saviojeliel.github.io/dd2-ntc-textures/img/header-1920x480.png">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"DD2 NTC Textures","applicationCategory":"GameApplication","operatingSystem":"Windows 10, Windows 11","description":"Dragon's Dogma 2 mod that reduces the install size by about 40 GB using NVIDIA Neural Texture Compression.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"url":"https://saviojeliel.github.io/dd2-ntc-textures/","downloadUrl":"https://github.com/SavioJeliel/dd2-ntc-textures/releases/latest","softwareVersion":"1.1"}
+</script>
+<style>
+  :root { --bg:#0e1118; --panel:#161b25; --text:#eceff4; --muted:#969eaf; --accent:#e8ba52; --line:#262d3b; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:17px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:960px; margin:0 auto; padding:0 16px 64px; }
+  img { max-width:100%; height:auto; display:block; border-radius:8px; }
+  .hero { margin:24px 0 8px; }
+  h1 { font-size:clamp(28px,5vw,42px); line-height:1.15; margin:28px 0 8px; }
+  h2 { font-size:24px; margin:44px 0 12px; border-top:1px solid var(--line); padding-top:28px; }
+  p, li { color:var(--text); }
+  .lead { font-size:19px; color:var(--muted); margin:0 0 24px; }
+  .buttons { display:flex; flex-wrap:wrap; gap:12px; margin:8px 0 8px; }
+  .btn { display:inline-block; padding:12px 20px; border-radius:8px; text-decoration:none; font-weight:600; }
+  .btn.primary { background:var(--accent); color:#14161c; }
+  .btn.ghost { border:1px solid var(--line); color:var(--text); }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin:28px 0; }
+  .stat { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:16px; }
+  .stat b { display:block; font-size:26px; color:var(--accent); }
+  .stat span { color:var(--muted); font-size:15px; }
+  figure { margin:20px 0; }
+  figcaption { color:var(--muted); font-size:14px; margin-top:6px; }
+  a { color:var(--accent); }
+  code { background:var(--panel); padding:2px 6px; border-radius:4px; font-size:15px; }
+  .warn { background:var(--panel); border-left:4px solid var(--accent); padding:12px 16px; border-radius:4px; }
+  footer { color:var(--muted); font-size:14px; margin-top:48px; border-top:1px solid var(--line); padding-top:20px; }
+</style>
+</head>
+<body>
+<main>
+  <img class="hero" src="img/header-1920x480.png" width="1920" height="480" alt="DD2 NTC Textures header">
+
+  <h1>DD2 NTC Textures: Dragon's Dogma 2, about 40 GB smaller</h1>
+  <p class="lead">A free mod that removes most textures from the game files and rebuilds them on your GPU at load time with NVIDIA Neural Texture Compression (NTC).</p>
+
+  <div class="buttons">
+    <a class="btn primary" href="https://github.com/SavioJeliel/dd2-ntc-textures/releases/latest">Download (GitHub Releases)</a>
+    <a class="btn ghost" href="https://github.com/SavioJeliel/dd2-ntc-textures">Source code and install guide</a>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b>90 → 51 GB</b><span>game size on disk</span></div>
+    <div class="stat"><b>~43.5 GiB</b><span>of textures removed</span></div>
+    <div class="stat"><b>4.1 and 4.2</b><span>game versions (4.2 is current Steam)</span></div>
+    <div class="stat"><b>NVIDIA and AMD</b><span>DirectX 12 GPUs</span></div>
+  </div>
+
+  <h2>How it works</h2>
+  <p>Each texture is replaced by a much smaller neural-compressed copy. When the game asks for a texture, a small REFramework plugin rebuilds it on the GPU with DirectX 12 compute shaders and hands it to the game as a normal texture. The original data is removed from the PAK files with NTFS sparse files, so the space really comes back.</p>
+  <figure>
+    <img src="img/how-it-works-1920x1080.png" width="1920" height="1080" alt="Diagram: game PAK, NTC package, plugin rebuilding textures on the GPU">
+  </figure>
+  <p>The mod is about disk space, not FPS. Performance in game is the same; loading can take a few seconds longer because textures are rebuilt.</p>
+
+  <h2>Original vs. NTC</h2>
+  <figure>
+    <img src="img/compare-01.jpg" width="1920" height="1080" alt="Comparison: original texture vs NTC rebuilt on the GPU" loading="lazy">
+  </figure>
+  <figure>
+    <img src="img/compare-04.jpg" width="1920" height="1080" alt="Comparison of an environment texture: original vs NTC" loading="lazy">
+  </figure>
+  <figure>
+    <img src="img/compare-08.jpg" width="1920" height="1080" alt="Comparison of a terrain texture: original vs NTC" loading="lazy">
+    <figcaption>Version 1.1 uses aggressive compression to save the most space. A higher-quality profile is in progress.</figcaption>
+  </figure>
+
+  <h2>Requirements</h2>
+  <ul>
+    <li>Dragon's Dogma 2, game version 4.1 or 4.2</li>
+    <li><a href="https://github.com/praydog/REFramework">REFramework</a> for DD2 (tested with v1.5.9.1)</li>
+    <li>A DirectX 12 GPU; the installer self-tests it before changing anything</li>
+    <li>The game on an NTFS drive (the normal Windows format)</li>
+  </ul>
+  <p class="warn"><b>Back up your PAK files first.</b> The installer deletes the original textures from the game files. To remove the mod, restore your backup or use Steam's "Verify integrity of game files".</p>
+
+  <h2>Install</h2>
+  <ol>
+    <li>Download all parts from <a href="https://github.com/SavioJeliel/dd2-ntc-textures/releases/latest">Releases</a> and extract them into the same folder.</li>
+    <li>Close the game and run <code>verify.bat</code> (checks only, changes nothing).</li>
+    <li>Run <code>install.bat</code>.</li>
+  </ol>
+  <p>Problems? Run <code>report.bat</code> and open an <a href="https://github.com/SavioJeliel/dd2-ntc-textures/issues">issue</a> with the ZIP it creates.</p>
+
+  <h2>Em português</h2>
+  <p>Mod gratuito que reduz o Dragon's Dogma 2 de cerca de 90 GB para 51 GB em disco. As texturas são removidas dos arquivos do jogo e reconstruídas na sua GPU com a compressão neural de texturas da NVIDIA (NTC). Funciona nas versões 4.1 e 4.2 do jogo, em GPUs NVIDIA e AMD com DirectX 12. Faça backup dos PAKs antes de instalar. <a href="https://github.com/SavioJeliel/dd2-ntc-textures#português">Guia completo em português</a>.</p>
+
+  <footer>
+    <p>Made by SavioJeliel. Like the project? <a href="https://buymeacoffee.com/saviojeliel">Buy me a coffee</a>.</p>
+    <p>Not affiliated with, sponsored or endorsed by Capcom or NVIDIA. Dragon's Dogma 2 is a trademark of Capcom. The NTC library is distributed under the NVIDIA RTX SDKs License.</p>
+  </footer>
+</main>
+</body>
+</html>
