@@ -109,6 +109,7 @@ Developed and tested on an **NVIDIA GeForce RTX 5060**. The plugin rebuilds text
 | --- | --- |
 | NVIDIA GeForce RTX 5060 | Game 4.1: installed, menu, save and gameplay OK. Game 4.2: installed, title screen and new game OK |
 | AMD Radeon RX 7900 XTX | GPU self-test passed (80/80 textures, ~3 ms each); in-game test pending |
+| NVIDIA GeForce RTX 5070 Ti | `verify.bat` passed (GPU self-test and file check), reported by a user; in-game test pending |
 
 Other DirectX 12 GPUs *should* work, since NVIDIA validates this NTC mode on GTX 10-series, AMD RX 6000 and Intel Arc and newer.
 
@@ -222,7 +223,7 @@ Se o mod te economizou espaço, você pode me pagar um café: **[buymeacoffee.co
 
 ### Hardware testado
 
-O mod foi desenvolvido e testado numa **NVIDIA GeForce RTX 5060**. O plugin usa compute shaders do DirectX 12 da biblioteca NTC, com pesos Int8 e sem recursos exclusivos de fabricante. Outras GPUs com DX12 *devem* funcionar, mas ainda não foram testadas.
+O mod foi desenvolvido e testado numa **NVIDIA GeForce RTX 5060**. O plugin usa compute shaders do DirectX 12 da biblioteca NTC, com pesos Int8 e sem recursos exclusivos de fabricante. O `verify.bat`, com autoteste de GPU e conferência dos arquivos, também passou numa AMD Radeon RX 7900 XTX e numa NVIDIA GeForce RTX 5070 Ti, segundo os testers. Nessas duas, falta o teste dentro do jogo. Outras GPUs com DX12 *devem* funcionar.
 
 **Antes de alterar qualquer coisa, o instalador faz um autoteste na sua GPU.** Ele reconstrói uma amostra de texturas de todos os formatos com o mesmo código do plugin. Se alguma falhar, ele para e não mexe no jogo. Conte numa issue qual é a sua GPU e a versão do driver, passando ou não.
 
